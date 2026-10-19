@@ -15,7 +15,8 @@ seeing the results.
 
 ## Documentation
 
-Full documentation is in [`docs/`](docs/README.md): a [user guide](docs/USER_GUIDE.md),
+Full documentation is in [`docs/`](docs/README.md): a [design FAQ](docs/FAQ.md) (paid AI? OCR? database?), the
+[roadmap](docs/ROADMAP.md), the [October 2026 review](docs/REVIEW-2026-10.md), a [user guide](docs/USER_GUIDE.md),
 [operations](docs/OPERATIONS.md), [architecture](docs/ARCHITECTURE.md), the [processing pipeline](docs/PIPELINE.md),
 [tick detection and tuning](docs/TICK_DETECTION.md), [HTTP routes and output formats](docs/API.md),
 [development](docs/DEVELOPMENT.md) and [troubleshooting](docs/TROUBLESHOOTING.md). This README is the short version.

@@ -10,5 +10,8 @@
 | [API.md](API.md) | Integrators | HTTP routes and form fields, a curl workflow, `evaluation.csv` / `results.json` / PDF formats |
 | [DEVELOPMENT.md](DEVELOPMENT.md) | Contributors | Dev setup, code conventions, the test suite, synthetic and golden fixtures, adding formats and features |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Everyone | Error messages and wrong-looking results, with causes and fixes |
+| [FAQ.md](FAQ.md) | Everyone | Does it use paid AI, how the OCR works, whether Tesseract is good enough, why there is no database |
+| [ROADMAP.md](ROADMAP.md) | Maintainers | Planned improvements in priority order, and when to add a database |
+| [REVIEW-2026-10.md](REVIEW-2026-10.md) | Maintainers | The October 2026 code review: scores, findings, what was fixed and what is open |
 
-New to the code? Read ARCHITECTURE, then PIPELINE, then TICK_DETECTION.
+New to the project? Start with FAQ. New to the code? Read ARCHITECTURE, then PIPELINE, then TICK_DETECTION.

@@ -96,6 +96,7 @@ model is asked for a single letter.
   is never sent.
 - **Cost and volume:** one small request per uncertain question (often a handful, at most one per question), each
   with one image and `max_tokens=10`.
+- **Review:** AI answers are used for scoring but flagged on the review page, so a person confirms each one.
 - **Failures:** an API error is logged (exception type only) and the question simply stays uncertain for review. The
   job does not fail.
 - **Disclosure:** the upload form, review page and results page all say when images were sent to the external API,
@@ -120,8 +121,8 @@ keeping beyond the retention window.
 
 ## Monitoring
 
-- **Health:** `GET /healthz` returns 200 `{"ok": true}` when Tesseract and pdftoppm are available. The compose file
-  uses it as the container health check.
+- **Health:** `GET /healthz` returns 200 `{"ok": true}` when Tesseract and pdftoppm are available. The image's
+  `HEALTHCHECK` and the compose file both use it.
 - **Logs** (stdout), one line per event:
   ```
   INFO job <id> started
@@ -142,3 +143,6 @@ keeping beyond the retention window.
   `error`.
 - After an upgrade that changes the pipeline, older jobs keep the results computed by the old version until they
   are re-reviewed or rescored. Re-scoring then reuses their stored `state.json`.
+- The image runs as the non-root user `app` (uid 10001). A volume created by an image from before October 2026 holds
+  root-owned files that this user cannot write. Remove the volume, or change the owner once:
+  `docker run --rm -u root -v exam-data:/data exam-answer-checker chown -R app:app /data`.

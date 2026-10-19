@@ -67,6 +67,7 @@ If anything is uncertain, a review page opens before the results. Each flagged q
 |---|---|---|
 | *Match: low score / small margin / best text match is Q.x* | The text match is uncertain. | Compare the two questions. If they differ, type the right response question number in **Matches response question**, or click one of the **Other likely matches**. |
 | *Tick unclear* | The checker could not tell which option is ticked. | Look at the key image and choose the ticked letter in **Key answer**. |
+| *Tick read by AI as X: please confirm* | The image analysis could not decide, and Claude (AI) suggested X. | Check the key image. Leave **Key answer** as X if it is right, or choose the ticked letter. |
 | *Option order: reordered / suspect* | The options may be in a different order in the two documents. | Check the option texts. A *reordered* key answer has already been translated to your sheet's letters. A *suspect* one has not. |
 | *Margin number reads N* | The question number printed in the key's margin did not match its position. | Check that the key image shows one complete question. This usually means the scan was misread and is harmless when the match looks right. |
 

@@ -46,6 +46,7 @@ browser. "Operator" fixes need access to the server or the code.
 | Jobs sit in "Waiting to start" | All `JOB_WORKERS` are busy with other jobs. | Wait, or raise `JOB_WORKERS` (CPU permitting). |
 | Processing is very slow | Too few CPU cores, or `OCR_THREADS` set too low. | Raise `OCR_THREADS` to the core count. Keep `RENDER_DPI` at 200. |
 | Disk keeps filling | The cleanup thread is not running, or the retention is too long. | Check the logs for `cleanup failed`. Lower `RETENTION_HOURS`. |
+| `PermissionError` on `/data` after upgrading the image | The image now runs as the non-root user `app`, and the volume was created by an older image running as root. | Remove the volume, or run `docker run --rm -u root -v exam-data:/data exam-answer-checker chown -R app:app /data` once. |
 | Running jobs restarted as errors after deploying | Expected: in-process jobs do not survive a restart. | Deploy when no job is processing. |
 | Multiple uvicorn workers behave oddly (jobs marked interrupted) | The job store assumes a single process. | Run one process. Use `JOB_WORKERS` / `OCR_THREADS` for parallelism. |
 | `docker compose` "unknown command" | The Compose plugin is not installed. | Install it, or use the plain `docker build` / `docker run` commands in [OPERATIONS.md](OPERATIONS.md#plain-docker). |

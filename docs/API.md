@@ -60,6 +60,7 @@ background after the redirect.
 ### `POST /jobs/{id}/review`
 
 `application/x-www-form-urlencoded`. Every field is optional. Questions not included keep their current values.
+Fields whose *k* is not a key question number (1 to the number of questions) are ignored.
 
 | Field | Value | Effect |
 |---|---|---|

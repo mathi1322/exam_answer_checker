@@ -74,8 +74,10 @@ stateDiagram-v2
     done --> [*]: expired / deleted
 ```
 
-1. **Upload** (`POST /upload`, synchronous). The two files are streamed into a new job folder, stopping as soon as
-   either goes over `MAX_FILE_MB`. Then the cheap checks run: real PDF, not encrypted, size and page limits, and a
+1. **Upload** (`POST /upload`). The two files are copied into a new job folder, stopping as soon as either goes over
+   `MAX_FILE_MB`. Starlette has already received the whole request by then, so limit the request size at the reverse
+   proxy too (see [OPERATIONS.md](OPERATIONS.md#behind-a-reverse-proxy)). Then the cheap checks run in a worker
+   thread, so they do not block other requests: real PDF, not encrypted, size and page limits, and a
    recognised response-sheet format (only the first few pages are looked at). On failure the folder is deleted and
    the form is shown again with the message. On success the job is queued and the browser goes to `/jobs/{id}`.
 2. **Processing** (background thread, `pipeline.process`). It runs all the stages and saves `state.json`. Checks
@@ -188,8 +190,9 @@ exists only as an image.
   driving a Tesseract or pdftoppm subprocess, so peak CPU use is about `JOB_WORKERS × OCR_THREADS` processes.
   `OMP_THREAD_LIMIT=1` stops each Tesseract process from also spawning its own threads.
 - Web requests read `job.json` and `state.json` without locks. Atomic renames make this safe.
-- The review and rescore requests run `finalize` synchronously in the request (a few seconds, mostly building the
-  PDF). They are only allowed once processing has finished, so they never race the worker for the same job.
+- The review and rescore requests run `finalize` within the request (a few seconds, mostly building the PDF), in
+  Starlette's thread pool so the event loop stays free for other requests. They are only allowed once processing
+  has finished, so they never race the worker for the same job.
 - Peak memory is a few hundred MB. Tick detection keeps at most a handful of page images in memory at a time.
 
 ## Extending to other formats

@@ -189,7 +189,8 @@ The review page uses `S` again to suggest the 3 most similar alternatives for ea
 
 See [TICK_DETECTION.md](TICK_DETECTION.md). In short, each key question gets a `TickResult` with a letter, or
 `uncertain=True`. If the AI fallback is on, every uncertain question is sent to Claude, and a valid letter in reply
-replaces the uncertain result with `method="ai"`. An API failure only adds a note; it never fails the job.
+replaces the uncertain result with `method="ai"`. AI answers are used for scoring but still flagged for review
+(`flags_for`), so a person confirms each one. An API failure only adds a note; it never fails the job.
 
 ---
 

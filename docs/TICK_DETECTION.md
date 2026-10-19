@@ -129,7 +129,8 @@ uncertain after step 3, the key crop (downscaled to at most 1568 px on its longe
 
 Only an exact single letter A–E is accepted, and it gives `method="ai"`. Anything else leaves the question uncertain.
 The AI is **never** consulted for questions the image method was confident about. Its answers are labelled "AI" in
-the review and results pages.
+the review and results pages, and each one is flagged "Tick read by AI as X: please confirm", so the review screen
+always opens for a person to check them.
 
 ---
 
