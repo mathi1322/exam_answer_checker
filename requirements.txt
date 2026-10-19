@@ -1,0 +1,14 @@
+fastapi==0.148.0
+uvicorn[standard]==0.54.0
+jinja2==3.1.6
+python-multipart==0.0.32
+pdfplumber==0.11.10
+pypdf==6.21.1
+reportlab==5.0.1
+Pillow==13.0.0
+opencv-python-headless==5.0.0.93
+numpy==2.5.4
+pytesseract==0.3.13
+scikit-learn==1.9.1
+scipy==1.18.1
+anthropic==1.15.0

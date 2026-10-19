@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Check your exam answers</h1>
+<p class="lead">Upload the official answer key and your response sheet. The questions are matched by their text, so it
+does not matter that they appear in a different order.</p>
+{% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
+<form class="card" method="post" action="/upload" enctype="multipart/form-data" id="upload-form">
+  <div class="grid2">
+    <div>
+      <label for="answer_key">Answer key <span class="hint">(scanned PDF with ticks)</span></label>
+      <input type="file" id="answer_key" name="answer_key" accept="application/pdf,.pdf" required>
+    </div>
+    <div>
+      <label for="response_sheet">Response sheet <span class="hint">(digital PDF from the exam portal)</span></label>
+      <input type="file" id="response_sheet" name="response_sheet" accept="application/pdf,.pdf" required>
+    </div>
+  </div>
+  <p class="hint">Up to {{ cfg.max_file_mb|round|int }} MB and {{ cfg.max_pages }} pages per file.</p>
+
+  <h2>Scoring</h2>
+  <div class="grid2">
+    <div><label for="marks_correct">Marks per correct answer</label>
+      <input type="number" id="marks_correct" name="marks_correct" step="0.01" min="0.01" value="{{ defaults.marks_correct }}"></div>
+    <div><label for="marks_wrong">Marks deducted per wrong answer</label>
+      <input type="number" id="marks_wrong" name="marks_wrong" step="0.01" min="0" value="{{ defaults.marks_wrong }}"></div>
+    <div><label for="e_policy">Option E, “Answer not known”</label>
+      <select id="e_policy" name="e_policy">
+        <option value="separate" {% if defaults.e_policy != 'wrong' %}selected{% endif %}>Neither right nor wrong</option>
+        <option value="wrong" {% if defaults.e_policy == 'wrong' %}selected{% endif %}>Count as wrong</option>
+      </select></div>
+    <div><label for="unanswered_policy">Unanswered questions</label>
+      <select id="unanswered_policy" name="unanswered_policy">
+        <option value="separate" {% if defaults.unanswered_policy != 'wrong' %}selected{% endif %}>Neither right nor wrong</option>
+        <option value="wrong" {% if defaults.unanswered_policy == 'wrong' %}selected{% endif %}>Count as wrong</option>
+      </select></div>
+  </div>
+
+  {% if cfg.ai_available %}
+  <h2>Unclear ticks</h2>
+  <label><input type="checkbox" name="use_ai" value="1"> Ask Claude (AI) about ticks the checker cannot read clearly</label>
+  <p class="hint">If you turn this on, images of those answer-key questions are sent to Anthropic's API, an external
+    service. Nothing from your response sheet is sent.</p>
+  {% endif %}
+
+  <p style="margin-top:20px"><button type="submit" id="submit-btn">Upload and check</button></p>
+  <p class="hint">Processing a 200-question scanned key takes a few minutes. Your files and results are deleted
+    automatically after {{ retention_hours|round|int }} hours, and you can delete them sooner from the results page.</p>
+</form>
+<script>
+  document.getElementById("upload-form").addEventListener("submit", function () {
+    var b = document.getElementById("submit-btn"); b.disabled = true; b.textContent = "Uploading…";
+  });
+</script>
+{% endblock %}

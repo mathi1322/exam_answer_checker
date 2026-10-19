@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Checking your answers</h1>
+<div class="card" id="box">
+  {% if job.status in ('invalid', 'error') %}
+    <div class="alert error" role="alert">{{ job.message }}</div>
+    <p><a class="btn" href="/">Try again</a></p>
+  {% else %}
+    <p id="stage">{{ job.stage }}</p>
+    <div class="progress" aria-hidden="true"><div id="bar" style="width: {{ (job.progress * 100)|round }}%"></div></div>
+    <p class="hint">You can leave this page open; it updates by itself. Reading a scanned answer key takes a few minutes.</p>
+  {% endif %}
+</div>
+{% if job.status not in ('invalid', 'error') %}
+<script>
+  (function poll() {
+    fetch("/jobs/{{ job.id }}/status").then(function (r) { return r.json(); }).then(function (s) {
+      if (s.status === "review" || s.status === "done") { location.href = "/jobs/{{ job.id }}"; return; }
+      if (s.status === "invalid" || s.status === "error") { location.reload(); return; }
+      document.getElementById("stage").textContent = s.stage;
+      document.getElementById("bar").style.width = Math.round(s.progress * 100) + "%";
+      setTimeout(poll, 2000);
+    }).catch(function () { setTimeout(poll, 5000); });
+  })();
+</script>
+{% endif %}
+{% endblock %}

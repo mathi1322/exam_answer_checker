@@ -1,0 +1,6 @@
+.git
+data
+tests/fixtures/*.pdf
+**/__pycache__
+.pytest_cache
+.work

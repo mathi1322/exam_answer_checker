@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Results · Exam Answer Checker{% endblock %}
+{% block content %}
+<h1>Results</h1>
+{% for w in data.warnings %}<div class="alert warn">{{ w }}</div>{% endfor %}
+{% if data.ai_fallback_used %}<div class="alert info">Some unclear ticks were read by Claude (AI) through Anthropic's API.</div>{% endif %}
+{% if summary.key_unknown %}<div class="alert warn">{{ summary.key_unknown }} question(s) have no key answer, so they are not scored.
+  <a href="/jobs/{{ job.id }}/review">Set them on the review page</a>.</div>{% endif %}
+
+<div class="stats">
+  <div class="stat"><b>{{ summary.marks|round(2) }}</b><span>marks out of {{ summary.max_marks|round(2) }}</span></div>
+  <div class="stat"><b>{{ summary.cutoff_count }}</b><span>cut-off count (correct)</span></div>
+  <div class="stat"><b style="color:var(--right)">{{ summary.correct }}</b><span>correct</span></div>
+  <div class="stat"><b style="color:var(--wrong)">{{ summary.wrong }}</b><span>wrong</span></div>
+  <div class="stat"><b>{{ summary.chose_e }}</b><span>chose E, “Answer not known”</span></div>
+  <div class="stat"><b>{{ summary.unanswered }}</b><span>unanswered</span></div>
+</div>
+<p class="hint">{{ summary.total }} questions. {{ summary.config.marks_correct }} marks per correct answer,
+  {{ summary.config.marks_wrong }} deducted per wrong answer.</p>
+
+<h2>Downloads</h2>
+<div class="downloads">
+  <a class="btn" href="/jobs/{{ job.id }}/download/reordered_response.pdf">Reordered response sheet (PDF)</a>
+  <a class="btn secondary" href="/jobs/{{ job.id }}/download/evaluation.csv">evaluation.csv</a>
+  <a class="btn secondary" href="/jobs/{{ job.id }}/download/results.json">results.json</a>
+  <a class="btn secondary" href="/jobs/{{ job.id }}/review">Back to review</a>
+</div>
+
+<h2>Every question</h2>
+<div class="table-wrap" style="max-height: 70vh">
+<table>
+  <thead><tr><th>Key Q</th><th>Response Q</th><th>Question ID</th><th>Key answer</th><th>Chosen</th><th>Result</th><th>Notes</th></tr></thead>
+  <tbody>
+  {% for r in data.questions %}
+    <tr class="{{ r.result if r.result in ('Right', 'Wrong') else 'other' }}">
+      <td>{{ r.key_index }}</td><td>Q.{{ r.resp_qnum }}</td><td>{{ r.question_id }}</td>
+      <td>{{ r.key_answer or '?' }}{% if r.key_answer_method == 'manual' %} <span class="tag">you</span>{% elif r.key_answer_method == 'ai' %} <span class="tag">AI</span>{% endif %}</td>
+      <td>{{ r.chosen or '–' }}</td><td class="res">{{ r.result }}</td>
+      <td>{% if r.match_manual %}<span class="tag">matched by you</span>{% endif %}{% if r.flagged %} <span class="tag">reviewed</span>{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h2>Change scoring</h2>
+<form class="card" method="post" action="/jobs/{{ job.id }}/rescore">
+  <div class="grid2">
+    <div><label for="marks_correct">Marks per correct answer</label>
+      <input type="number" id="marks_correct" name="marks_correct" step="0.01" min="0.01" value="{{ summary.config.marks_correct }}"></div>
+    <div><label for="marks_wrong">Marks deducted per wrong answer</label>
+      <input type="number" id="marks_wrong" name="marks_wrong" step="0.01" min="0" value="{{ summary.config.marks_wrong }}"></div>
+    <div><label for="e_policy">Option E</label>
+      <select id="e_policy" name="e_policy">
+        <option value="separate" {% if summary.config.e_policy != 'wrong' %}selected{% endif %}>Neither right nor wrong</option>
+        <option value="wrong" {% if summary.config.e_policy == 'wrong' %}selected{% endif %}>Count as wrong</option></select></div>
+    <div><label for="unanswered_policy">Unanswered</label>
+      <select id="unanswered_policy" name="unanswered_policy">
+        <option value="separate" {% if summary.config.unanswered_policy != 'wrong' %}selected{% endif %}>Neither right nor wrong</option>
+        <option value="wrong" {% if summary.config.unanswered_policy == 'wrong' %}selected{% endif %}>Count as wrong</option></select></div>
+  </div>
+  <p><button type="submit" class="secondary">Recalculate</button></p>
+</form>
+
+<h2>Your data</h2>
+<form method="post" action="/jobs/{{ job.id }}/delete" onsubmit="return confirm('Delete the uploaded files and results now?');">
+  <p class="hint">Uploads and results are deleted automatically {{ retention_hours|round|int }} hours after upload.</p>
+  <button type="submit" class="danger">Delete now</button>
+</form>
+{% endblock %}

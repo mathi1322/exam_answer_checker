@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Review · Exam Answer Checker{% endblock %}
+{% block content %}
+<h1>Review before results</h1>
+<p class="lead">
+  {% if n_flagged %}{{ n_flagged }} of {{ items|length }} questions need a look: the match was uncertain, the tick
+  could not be read clearly, or the option order may differ.{% else %}Nothing was flagged. You can still check any pair.{% endif %}
+  The answer key is on the left, your response sheet on the right.
+</p>
+{% for w in state.warnings %}<div class="alert warn">{{ w }}</div>{% endfor %}
+{% if state.ai_used %}<div class="alert info">Unclear ticks were sent to Anthropic's API (Claude) as images. Answers it supplied are marked “AI”.</div>{% endif %}
+
+<label style="font-weight:normal"><input type="checkbox" id="show-all" {% if not n_flagged %}checked{% endif %}>
+  Show all {{ items|length }} pairs, not only the flagged ones</label>
+
+<datalist id="resp-list">{% for l in resp_labels %}<option value="{{ l }}">{% endfor %}</datalist>
+
+<form method="post" id="review-form">
+{% for it in items %}
+  <section class="pair {% if it.flags %}flagged{% else %}ok hidden{% endif %}" id="k{{ it.k }}">
+    {% if it.flags %}<ul class="flags">{% for f in it.flags %}<li>{{ f }}</li>{% endfor %}</ul>{% endif %}
+    <div class="imgs">
+      <figure style="margin:0">
+        <figcaption><b>Answer key Q{{ it.k }}</b></figcaption>
+        <img loading="lazy" src="/jobs/{{ job.id }}/crop/key/{{ it.k }}" alt="Answer key question {{ it.k }}">
+      </figure>
+      <figure style="margin:0">
+        <figcaption><b class="resp-title">Response Q.{{ it.q }}</b> <span class="hint">match score <span class="score">{{ '%.2f'|format(it.score) }}</span></span></figcaption>
+        <img loading="lazy" class="resp-img" src="/jobs/{{ job.id }}/crop/resp/{{ it.q }}" alt="Response sheet question">
+        <p class="hint" style="margin:4px 0 0">Candidate chose: <b class="chosen">{{ it.chosen or 'not answered' }}</b></p>
+      </figure>
+    </div>
+    <div class="meta">
+      <div>
+        <label for="m{{ it.k }}">Matches response question <span class="hint">(type to search)</span></label>
+        <input type="text" id="m{{ it.k }}" name="match_{{ it.k }}" list="resp-list" value="Q.{{ it.q }}"
+               data-current="{{ it.q }}" data-k="{{ it.k }}" class="match-input" autocomplete="off">
+        {% if it.alternatives %}<div class="hint">Other likely matches:
+          {% for q, s in it.alternatives %}<a href="#" class="alt" data-q="{{ q }}">Q.{{ q }}</a> ({{ '%.2f'|format(s) }}){% if not loop.last %}, {% endif %}{% endfor %}</div>{% endif %}
+      </div>
+      <div>
+        <label for="a{{ it.k }}">Key answer</label>
+        <select id="a{{ it.k }}" name="answer_{{ it.k }}">
+          <option value="" {% if not it.answer %}selected{% endif %}>Unknown</option>
+          {% for L in 'ABCDE' %}<option value="{{ L }}" {% if it.answer == L %}selected{% endif %}>{{ L }}</option>{% endfor %}
+        </select>
+        <div class="hint">
+          {% if it.method == 'manual' %}set by you{% if it.detected %} (detected {{ it.detected }}){% endif %}
+          {% elif it.answer %}detected{% if it.method == 'ai' %} by AI{% endif %}
+          {% else %}not detected{% if it.ai_answer %}, AI said {{ it.ai_answer }}{% endif %}{% endif %}
+        </div>
+      </div>
+    </div>
+  </section>
+{% endfor %}
+  <div class="sticky-bar">
+    <button type="submit">Confirm and see results</button>
+    <span class="hint" id="change-note"></span>
+  </div>
+</form>
+
+<script>
+(function () {
+  var jobId = "{{ job.id }}";
+  var showAll = document.getElementById("show-all");
+  function applyFilter() {
+    document.querySelectorAll(".pair.ok").forEach(function (el) { el.classList.toggle("hidden", !showAll.checked); });
+  }
+  showAll.addEventListener("change", applyFilter);
+  applyFilter();
+
+  var inputs = Array.prototype.slice.call(document.querySelectorAll(".match-input"));
+  var changes = 0;
+  function setRow(input, q) {
+    input.value = "Q." + q;
+    input.dataset.current = q;
+    var pair = input.closest(".pair");
+    pair.querySelector(".resp-img").src = "/jobs/" + jobId + "/crop/resp/" + q;
+    pair.querySelector(".resp-title").textContent = "Response Q." + q;
+    pair.querySelector(".score").textContent = "—";
+    pair.querySelector(".chosen").textContent = "see image";
+    pair.classList.add("changed");
+    if (pair.classList.contains("hidden")) pair.classList.remove("hidden");
+  }
+  function choose(input, q) {
+    var old = input.dataset.current;
+    if (!q || String(q) === old) { input.value = "Q." + old; return; }
+    // Keep the matching one-to-one: whoever had q gets this row's old question.
+    var other = inputs.find(function (i) { return i !== input && i.dataset.current === String(q); });
+    setRow(input, q);
+    if (other) setRow(other, old);
+    changes++;
+    document.getElementById("change-note").textContent = changes + " match change(s). Swapped rows are outlined.";
+  }
+  inputs.forEach(function (input) {
+    input.addEventListener("change", function () {
+      var m = input.value.match(/\d+/);
+      choose(input, m ? m[0] : null);
+    });
+  });
+  document.querySelectorAll("a.alt").forEach(function (a) {
+    a.addEventListener("click", function (e) {
+      e.preventDefault();
+      choose(a.closest(".pair").querySelector(".match-input"), a.dataset.q);
+    });
+  });
+})();
+</script>
+{% endblock %}
