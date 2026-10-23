@@ -90,7 +90,7 @@ There is no database. Each upload is a **job folder** on disk:
 ```
 DATA_DIR/jobs/<random id>/      (/data in Docker, kept in the "exam-data" volume)
 ├── job.json            status, progress, scoring settings
-├── key.pdf             uploaded answer key
+├── key.pdf             uploaded answer key, deleted as soon as processing ends
 ├── response.pdf        uploaded response sheet
 ├── pages/              key page renders, deleted as soon as processing ends
 ├── crops/              one image per question, for the review screen
@@ -99,11 +99,11 @@ DATA_DIR/jobs/<random id>/      (/data in Docker, kept in the "exam-data" volume
 └── out/                evaluation.csv, results.json, reordered_response.pdf
 ```
 
-- **Access:** the folder name is a 128-bit random token, which appears in the job URL. It is the only access key;
-  there are no accounts.
+- **Access:** the folder name is a 128-bit random token, which appears in the job URL. There are no accounts. The
+  job also opens only in the browser that uploaded it (an owner cookie), so a shared or leaked link shows nothing.
 - **Safe writes:** `job.json` and `state.json` are written to a temporary file and renamed into place, so a reader
   never sees a half-written file.
-- **Deletion:** a background thread deletes jobs `RETENTION_HOURS` after upload (24 by default), checking every 10
+- **Deletion:** a background thread deletes jobs `RETENTION_HOURS` after upload (2 by default), checking every 10
   minutes. **Delete now** removes a job at once.
 - **Processing:** runs in a thread pool inside the web process (`JOB_WORKERS`, default 1).
 

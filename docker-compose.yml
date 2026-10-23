@@ -2,13 +2,21 @@ services:
   web:
     build: .
     image: exam-answer-checker
+    # Published on this machine only. The public reaches the app through the caddy service (profile "public").
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     # Values come from .env if present (see .env.example).
     environment:
-      RETENTION_HOURS: ${RETENTION_HOURS:-24}
+      # Trust X-Forwarded-For from the proxy, so rate limits apply per real client. Safe only while port 8000 is
+      # not reachable from the internet (see the ports line above).
+      FORWARDED_ALLOW_IPS: "*"
+      RETENTION_HOURS: ${RETENTION_HOURS:-2}
       MAX_FILE_MB: ${MAX_FILE_MB:-50}
       MAX_PAGES: ${MAX_PAGES:-300}
+      MAX_PAGE_INCHES: ${MAX_PAGE_INCHES:-20}
+      UPLOADS_PER_HOUR: ${UPLOADS_PER_HOUR:-10}
+      MAX_PENDING_JOBS: ${MAX_PENDING_JOBS:-10}
+      MAX_DISK_GB: ${MAX_DISK_GB:-5}
       RENDER_DPI: ${RENDER_DPI:-200}
       OCR_THREADS: ${OCR_THREADS:-}
       JOB_WORKERS: ${JOB_WORKERS:-1}
@@ -29,6 +37,24 @@ services:
       interval: 30s
       timeout: 5s
 
+  # HTTPS on your domain: DOMAIN=checker.example.com docker compose --profile public up -d
+  caddy:
+    image: caddy:2.10-alpine
+    profiles: ["public"]
+    depends_on: [web]
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+      MAX_REQUEST_MB: ${MAX_REQUEST_MB:-101}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+
   # docker compose run --rm test
   test:
     build:
@@ -46,3 +72,5 @@ services:
 
 volumes:
   exam-data:
+  caddy-data:
+  caddy-config:

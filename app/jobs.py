@@ -1,10 +1,13 @@
 """In-process background jobs with status kept as JSON files on disk.
 
 Each job lives in DATA_DIR/jobs/<id>/ and is deleted after RETENTION_HOURS.
+A job belongs to the browser that uploaded it: job.json keeps a hash of that browser's owner cookie.
 Logs carry job ids and stage names only, never names, IDs or file contents.
 """
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import logging
 import secrets
@@ -37,13 +40,17 @@ class JobStore:
 
     # ---------------------------------------------------------------- storage
 
-    def new(self, options: dict) -> str:
+    def new(self, options: dict, owner: str = "") -> str:
         job_id = secrets.token_urlsafe(16)
         d = self.root / job_id
         d.mkdir(parents=True)
         self._write(job_id, {"id": job_id, "created": time.time(), "status": QUEUED, "stage": "Waiting to start",
-                             "progress": 0.0, "message": "", "options": options})
+                             "progress": 0.0, "message": "", "options": options, "owner": _owner_hash(owner)})
         return job_id
+
+    @staticmethod
+    def owned_by(job: dict, owner: str) -> bool:
+        return bool(owner) and hmac.compare_digest(job.get("owner", ""), _owner_hash(owner))
 
     def dir(self, job_id: str) -> Optional[Path]:
         if not job_id or not set(job_id) <= _JOB_ID_CHARS:
@@ -82,6 +89,20 @@ class JobStore:
         log.info("job %s deleted", job_id)
         return True
 
+    def pending_count(self) -> int:
+        return sum(1 for d in self.root.iterdir() if (job := self.get(d.name)) and job["status"] in (QUEUED, PROCESSING))
+
+    def disk_usage(self) -> int:
+        """Bytes used by all job folders."""
+        total = 0
+        for f in self.root.rglob("*"):
+            try:
+                if f.is_file():
+                    total += f.stat().st_size
+            except OSError:  # deleted by cleanup while we were walking
+                pass
+        return total
+
     # ---------------------------------------------------------------- running
 
     def submit(self, job_id: str) -> None:
@@ -110,13 +131,19 @@ class JobStore:
             log.info("job %s finished processing", job_id)
         except ValidationError as exc:
             self.update(job_id, status=INVALID, message=exc.message, finished=time.time())
+            _remove_uploads(d, "response.pdf")
             log.info("job %s rejected by validation", job_id)
         except Exception as exc:
             self.update(job_id, status=ERROR, finished=time.time(),
                         message="Something went wrong while processing the files. Please try again.")
+            _remove_uploads(d, "response.pdf")
             # Stack frames and exception type only: messages could quote file contents.
             log.error("job %s failed with %s:\n%s", job_id, type(exc).__name__,
                       "".join(traceback.format_tb(exc.__traceback__, limit=-8)))
+        finally:
+            # Only the crops are needed from the key after processing. The response sheet stays while the
+            # job exists, because review and rescoring rebuild the reordered PDF from it.
+            _remove_uploads(d, "key.pdf")
 
     def mark_interrupted(self) -> None:
         """Jobs left running by a previous process will never finish."""
@@ -125,6 +152,7 @@ class JobStore:
             if job and job["status"] in (QUEUED, PROCESSING):
                 self.update(d.name, status=ERROR, message="Processing was interrupted by a server restart. "
                                                          "Please upload the files again.")
+                _remove_uploads(d, "key.pdf", "response.pdf")
 
     # ---------------------------------------------------------------- cleanup
 
@@ -151,3 +179,12 @@ class JobStore:
                 time.sleep(interval_s)
 
         threading.Thread(target=loop, daemon=True, name="cleanup").start()
+
+
+def _owner_hash(owner: str) -> str:
+    return hashlib.sha256(owner.encode()).hexdigest() if owner else ""
+
+
+def _remove_uploads(d: Path, *names: str) -> None:
+    for name in names:
+        (d / name).unlink(missing_ok=True)

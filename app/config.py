@@ -18,10 +18,16 @@ class Settings:
     data_dir: Path = field(default_factory=lambda: Path(_env("DATA_DIR", "./data")))
     max_file_mb: float = field(default_factory=lambda: _env("MAX_FILE_MB", 50.0, float))
     max_pages: int = field(default_factory=lambda: _env("MAX_PAGES", 300, int))
-    retention_hours: float = field(default_factory=lambda: _env("RETENTION_HOURS", 24.0, float))
+    max_page_inches: float = field(default_factory=lambda: _env("MAX_PAGE_INCHES", 20.0, float))
+    retention_hours: float = field(default_factory=lambda: _env("RETENTION_HOURS", 2.0, float))
     render_dpi: int = field(default_factory=lambda: _env("RENDER_DPI", 200, int))
     ocr_threads: int = field(default_factory=lambda: _env("OCR_THREADS", os.cpu_count() or 2, int))
     job_workers: int = field(default_factory=lambda: _env("JOB_WORKERS", 1, int))
+
+    # Public-deployment limits. Uploads are refused (not queued) when any of them is reached.
+    uploads_per_hour: int = field(default_factory=lambda: _env("UPLOADS_PER_HOUR", 10, int))  # per client IP
+    max_pending_jobs: int = field(default_factory=lambda: _env("MAX_PENDING_JOBS", 10, int))  # queued + processing
+    max_disk_gb: float = field(default_factory=lambda: _env("MAX_DISK_GB", 5.0, float))  # all job folders together
 
     # Matching review thresholds
     match_min_score: float = field(default_factory=lambda: _env("MATCH_MIN_SCORE", 0.35, float))

@@ -3,7 +3,8 @@
 Planned improvements, most important first. Which items are urgent depends on how the service is run:
 
 - **One person, on their own machine:** items 1 and 5, and possibly 4. The rest can wait.
-- **Shared with others or reachable from the internet:** items 2 and 3 are required before anyone else uses it.
+- **Shared with others or reachable from the internet:** items 2 and 3 were required before anyone else used it,
+  and are done (October 2026). See [OPERATIONS.md](OPERATIONS.md#on-the-public-internet).
 
 Items marked *(review)* come from the [October 2026 review](REVIEW-2026-10.md).
 
@@ -19,23 +20,22 @@ scans.
   for keys without a golden CSV.
 - Use the results to decide whether OCR or the tick thresholds need work (see [FAQ.md](FAQ.md#is-tesseract-good-enough-or-should-we-use-something-else)).
 
-## 2. Access control *(review)*
+## 2. Access control *(review)* — done
 
-Anyone with a job URL can see that candidate's results, and the uploads contain personal data (name, registration
-number).
+Anyone with a job URL could see that candidate's results. The service is meant to be open to the public, so instead
+of a password:
 
-- Put the service behind authentication. For a small group, a password at the reverse proxy (nginx or Caddy basic
-  auth) is enough.
-- Add CSRF protection to the POST forms (upload, review, rescore, delete).
-- Rate-limit uploads per client.
+- Done: jobs belong to the uploading browser (owner cookie, checked on every job route).
+- Done: CSRF protection on the POST forms (same-origin check plus a `SameSite=Lax` cookie).
+- Done: per-IP upload rate limit, and a cap on queued jobs.
+- Later, if abuse appears: a CAPTCHA on the upload form, or accounts (which need a database, see below).
 
-## 3. Protect the server from hostile uploads *(review)*
+## 3. Protect the server from hostile uploads *(review)* — done
 
-- **Limit page dimensions,** not only the page count. One very large page rendered at 200 dpi can exhaust memory or
-  disk in `pdftoppm`. Check each page's MediaBox during validation.
-- **Reject oversized requests at the proxy** (`client_max_body_size`). The app's `MAX_FILE_MB` check runs only after
-  Starlette has spooled the whole upload to temporary disk.
-- **Cap total disk use** across jobs, and refuse new uploads when the cap is reached.
+- Done: page dimensions are checked (`MAX_PAGE_INCHES`), not only the page count.
+- Done: oversized requests are refused at Caddy (`MAX_REQUEST_MB`) and by the app from `Content-Length`, before
+  Starlette spools the upload.
+- Done: total disk use across jobs is capped (`MAX_DISK_GB`).
 
 ## 4. Survive restarts
 

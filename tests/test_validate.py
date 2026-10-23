@@ -27,6 +27,17 @@ def test_encrypted(tmp_path, synth):
         check_pdf(p, "response sheet", "locked.pdf", 50, 300)
 
 
+def test_huge_page_rejected(tmp_path):
+    w = PdfWriter()
+    w.add_blank_page(width=72 * 8.27, height=72 * 11.69)  # A4 is fine
+    w.add_blank_page(width=72 * 100, height=72 * 100)
+    p = tmp_path / "poster.pdf"
+    w.write(p)
+    with pytest.raises(ValidationError, match="Page 2 .* larger than 20 inches"):
+        check_pdf(p, "answer key", "poster.pdf", 50, 300, max_page_inches=20)
+    assert check_pdf(p, "answer key", "poster.pdf", 50, 300, max_page_inches=200) == 2
+
+
 def test_oversized_and_too_many_pages(synth):
     with pytest.raises(ValidationError, match="MB limit"):
         check_pdf(synth.key_pdf, "answer key", "k.pdf", 0.01, 300)

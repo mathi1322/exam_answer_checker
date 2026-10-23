@@ -3,8 +3,12 @@
 This is the reference for scripting against the service and for consuming its output files. The web UI uses the same
 routes. There is no separate JSON API: uploads and review submissions are ordinary HTML form posts.
 
-All `/jobs/{job_id}/…` routes return **404** if the job does not exist, has expired or was deleted. The job ID is
-the only credential, so keep job URLs private.
+All `/jobs/{job_id}/…` routes return **404** if the job does not exist, has expired or was deleted, or if the request
+does not carry the owner cookie (`owner`, or `__Host-owner` over HTTPS) set by the upload that created it. Scripts must keep that cookie (`curl -c/-b`).
+
+POSTs that a browser marks as coming from another site (`Origin` or `Sec-Fetch-Site`) get **403**. `POST /upload`
+can also return **413** (request too large), **429** (too many uploads from this IP in the last hour) or **503**
+(server busy or out of space).
 
 ## Routes
 
@@ -70,14 +74,15 @@ Fields whose *k* is not a key question number (1 to the number of questions) are
 Example, scripting a whole run:
 
 ```sh
-JOB=$(curl -s -o /dev/null -w '%{redirect_url}' \
+C="curl -s -c cookies.txt -b cookies.txt"                          # keep the owner cookie
+JOB=$($C -o /dev/null -w '%{redirect_url}' \
   -F answer_key=@answer_key.pdf -F response_sheet=@response_sheet.pdf -F marks_correct=1.5 \
   http://localhost:8000/upload)
-until curl -s "$JOB/status" | grep -qE '"(review|done|invalid|error)"'; do sleep 5; done
-curl -s "$JOB/status"
-curl -s -X POST -d 'answer_38=A' "$JOB/review" -o /dev/null      # confirm the review (with one fix)
-curl -s -O "$JOB/download/results.json"
-curl -s -X POST "$JOB/delete" -o /dev/null
+until $C "$JOB/status" | grep -qE '"(review|done|invalid|error)"'; do sleep 5; done
+$C "$JOB/status"
+$C -X POST -d 'answer_38=A' "$JOB/review" -o /dev/null           # confirm the review (with one fix)
+$C -O "$JOB/download/results.json"
+$C -X POST "$JOB/delete" -o /dev/null
 ```
 
 ### `POST /jobs/{id}/rescore`
