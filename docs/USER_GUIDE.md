@@ -107,12 +107,12 @@ You do not need to upload again.
 
 ## Step 5: Delete your data
 
-Your response sheet contains personal details. Everything you upload, and every result, is deleted automatically
-24 hours after upload (the administrator can change this). To delete sooner, press **Delete now** at the bottom of
-the results page.
+Your response sheet contains personal details. The answer key is deleted as soon as it has been read. Your response
+sheet and every result are deleted automatically 2 hours after upload (the administrator can change this), so
+download anything you want to keep. To delete sooner, press **Delete now** at the bottom of the results page.
 
-Anyone who has the job's link (`/jobs/…`) can open your results until they are deleted. Do not share the link unless
-you mean to.
+Your results open only in the browser you uploaded from. Someone else who gets the link sees "does not exist", and
+so would you on another device or after clearing your cookies.
 
 ## How accurate is it?
 

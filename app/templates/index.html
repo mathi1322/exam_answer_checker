@@ -43,8 +43,10 @@ does not matter that they appear in a different order.</p>
   {% endif %}
 
   <p style="margin-top:20px"><button type="submit" id="submit-btn">Upload and check</button></p>
-  <p class="hint">Processing a 200-question scanned key takes a few minutes. Your files and results are deleted
-    automatically after {{ retention_hours|round|int }} hours, and you can delete them sooner from the results page.</p>
+  <p class="hint">Processing a 200-question scanned key takes a few minutes. Your files are kept only as long as needed: the answer key
+    is deleted as soon as it has been read, and your response sheet and results are deleted automatically
+    {{ retention_hours }} hour(s) after upload, or sooner if you press <b>Delete now</b>
+    on the results page. Results can only be opened in the browser you uploaded from.</p>
 </form>
 <script>
   document.getElementById("upload-form").addEventListener("submit", function () {

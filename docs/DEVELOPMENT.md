@@ -30,6 +30,7 @@ A local virtualenv also works if Python 3.11+, `tesseract` and `pdftoppm` are in
 app/
   main.py            routes (thin: parse, call pipeline/jobs, render)
   jobs.py            job folders, worker thread pool, cleanup
+  security.py        rate limiter, CSRF check, response headers
   pipeline.py        process() runs the stages; apply_review(); finalize()
   config.py          Settings from environment variables
   models.py          shared dataclasses

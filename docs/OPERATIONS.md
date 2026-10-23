@@ -23,7 +23,8 @@ docker compose up -d --build
 docker compose logs -f web
 ```
 
-The `web` service listens on port 8000 and keeps all job data in the named volume `exam-data` (mounted at `/data`).
+The `web` service listens on port 8000 **of this machine only** (`127.0.0.1:8000`) and keeps all job data in the
+named volume `exam-data` (mounted at `/data`). To reach it from other machines, use the `public` profile below.
 The compose file passes settings from `.env` through `${VAR:-default}` substitution, so `.env` is optional.
 
 ### Plain Docker
@@ -46,12 +47,44 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 Run **one process**, without `--workers N`. Jobs run in threads inside the process, and the job store assumes a
 single process owns it: a second process would mark the first one's running jobs as interrupted at startup.
 
-### Behind a reverse proxy
+### On the public internet
 
-Put it behind nginx, Caddy or similar for TLS and access control. Allow uploads of at least 2 × `MAX_FILE_MB` per
-request (both files arrive in one request), for example `client_max_body_size 110m;` in nginx. Request timeouts can
-stay short. Uploads return as soon as the files are saved, and the slowest synchronous request (review submission,
-which rebuilds the PDF) takes a few seconds.
+1. Get a small VPS (2–4 CPU cores, 2 GB RAM, 20 GB disk) with Docker, and open ports 80 and 443.
+2. Point your domain's DNS `A` (and `AAAA`) record at the server.
+3. Put `DOMAIN=checker.example.com` in `.env`, keep `AI_FALLBACK=0`, and start both services:
+
+   ```sh
+   docker compose --profile public up -d --build
+   ```
+
+The `caddy` service ([`Caddyfile`](../Caddyfile)) gets and renews a Let's Encrypt certificate for `DOMAIN`, redirects
+HTTP to HTTPS, adds HSTS, refuses request bodies over `MAX_REQUEST_MB`, and times out slow clients. Only Caddy is
+reachable from outside. The app trusts Caddy's `X-Forwarded-For` header (`FORWARDED_ALLOW_IPS=*` in the compose
+file) so that rate limits apply to the real visitor. That is safe only because port 8000 is bound to `127.0.0.1`:
+never publish port 8000 on a public interface while that setting is on, or visitors could fake their address.
+
+What protects a public deployment, without accounts:
+
+| Risk | Protection |
+|---|---|
+| Someone else opening a candidate's results | Jobs belong to the uploading browser (an `HttpOnly`, `SameSite=Lax` owner cookie, stored hashed in `job.json`; over HTTPS it is `__Host-owner`, which a subdomain cannot set). Other browsers get 404, even with the link. The 128-bit job ID is still required too |
+| Job links leaking to other sites | `Referrer-Policy: no-referrer`, and `Cache-Control: no-store` on every job page and download |
+| Cross-site form posts (CSRF) | POSTs whose `Origin` or `Sec-Fetch-Site` shows another site get 403. The `SameSite=Lax` cookie is not sent on them anyway |
+| One visitor filling the server | `UPLOADS_PER_HOUR` per IP (429), `MAX_PENDING_JOBS` (503 "busy"), `MAX_DISK_GB` (503 "out of space") |
+| Huge or hostile PDFs | Request size refused at Caddy and again in the app before parsing (413). Per-file size, page count and page dimensions (`MAX_PAGE_INCHES`) checked before any rendering |
+| Clickjacking, injected scripts | `Content-Security-Policy` (`frame-ancestors 'none'`, same-origin resources only), `X-Frame-Options: DENY`, `nosniff` |
+| Running up an API bill | The AI fallback is off unless you enable it. Leave it off on a public site: every visitor could tick the box |
+| Exposed internals | FastAPI's `/docs` and `/openapi.json` are disabled |
+
+Capacity: on 2 cores, with `JOB_WORKERS=1`, the server checks roughly 15 full-size papers an hour. Later uploads
+wait as `queued` until `MAX_PENDING_JOBS` is reached, then are refused with "busy, try again". Raise `JOB_WORKERS`
+and the core count together.
+
+If you use your own nginx instead of the bundled Caddy, allow at least 2 × `MAX_FILE_MB` per request (for example
+`client_max_body_size 101m;`), pass `X-Forwarded-For`, `X-Forwarded-Proto` and the original `Host`, and start
+uvicorn with `--forwarded-allow-ips` set to the proxy's address. Behind Cloudflare, also make the proxy take the
+client address from `CF-Connecting-IP`. Request timeouts can stay short: uploads return as soon as the files are
+saved, and the slowest synchronous request (review submission, which rebuilds the PDF) takes a few seconds.
 
 ## Configuration
 
@@ -60,9 +93,15 @@ All settings are environment variables, read once at startup. `.env.example` has
 | Variable | Default | Description |
 |---|---|---|
 | `DATA_DIR` | `./data` (`/data` in Docker) | Root of the job folders |
-| `RETENTION_HOURS` | `24` | Age, in hours from upload, at which a job folder is deleted |
+| `RETENTION_HOURS` | `2` | Age, in hours from upload, at which a job folder is deleted |
 | `MAX_FILE_MB` | `50` | Per-file upload limit |
 | `MAX_PAGES` | `300` | Per-file page limit |
+| `MAX_PAGE_INCHES` | `20` | Refuse pages wider or taller than this (A4 is 11.7 in). One huge page would exhaust memory when rendered |
+| `UPLOADS_PER_HOUR` | `10` | Uploads allowed per client IP in a sliding hour. `0` turns the limit off |
+| `MAX_PENDING_JOBS` | `10` | Refuse new uploads while this many jobs are queued or processing |
+| `MAX_DISK_GB` | `5` | Refuse new uploads while job folders use this much disk in total |
+| `DOMAIN` | `localhost` | Public hostname for the `caddy` service (`--profile public`) |
+| `MAX_REQUEST_MB` | `101` | Largest request Caddy accepts: 2 × `MAX_FILE_MB` + 1 |
 | `RENDER_DPI` | `200` | Render resolution for the key and the crops. 300 can help with very small print, but OCR takes about twice as long |
 | `OCR_THREADS` | CPU count | Parallel Tesseract/pdftoppm processes per job |
 | `JOB_WORKERS` | `1` | Jobs processed at the same time. Others wait in `queued` |
@@ -109,11 +148,12 @@ Response sheets contain personal data: name, registration and application number
 | Measure | How |
 |---|---|
 | **Storage is per job** | Everything for a job lives in `DATA_DIR/jobs/<id>/` and nowhere else. No database, no shared cache |
+| **Early deletion** | The answer key PDF is deleted as soon as processing ends. Both PDFs are deleted at once when a job fails or is interrupted. The response sheet stays while the job exists, because review and rescoring rebuild the reordered PDF from it |
 | **Automatic deletion** | A background thread deletes job folders `RETENTION_HOURS` after upload (checked every 10 minutes and at startup) |
 | **Manual deletion** | "Delete now" on the results page removes the folder immediately |
 | **Logs** | Only job IDs, stage events and exception *types* with stack frames. Never names, IDs, file contents or exception messages |
 | **Outputs** | The reordered PDF's summary page shows the subject, not the candidate's name. The response blocks themselves are copied unchanged |
-| **Access** | Job URLs contain a 128-bit random token. There are no accounts. Put the service behind authentication if strangers can reach it |
+| **Access** | There are no accounts. A job opens only with its 128-bit random URL **and** the owner cookie of the browser that uploaded it. Client IPs are kept in memory for rate limiting only, never written to disk |
 | **Uploads** | Validated before processing. The PDFs are parsed with pdfplumber and pypdf and rendered by Poppler, and never executed |
 
 Backups: job data is deliberately short-lived. Do **not** back up the `/data` volume. There is nothing in it worth

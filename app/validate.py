@@ -16,8 +16,13 @@ class ValidationError(Exception):
         self.message = message
 
 
-def check_pdf(path: Path, label: str, original_name: str, max_mb: float, max_pages: int) -> int:
-    """Basic file checks. Returns the page count."""
+def check_pdf(path: Path, label: str, original_name: str, max_mb: float, max_pages: int,
+              max_page_inches: float = 20.0) -> int:
+    """Basic file checks. Returns the page count.
+
+    The page size limit matters because pdftoppm renders every page at RENDER_DPI: one huge page would exhaust
+    memory or disk long before the page-count limit is reached.
+    """
     if not path.exists() or path.stat().st_size == 0:
         raise ValidationError(f"Please choose a file for the {label}.")
     if not original_name.lower().endswith(".pdf"):
@@ -33,6 +38,14 @@ def check_pdf(path: Path, label: str, original_name: str, max_mb: float, max_pag
         if reader.is_encrypted:
             raise ValidationError(f"The {label} is password-protected. Please upload an unlocked copy.")
         n = len(reader.pages)
+        if n <= max_pages:
+            limit = max_page_inches * 72
+            for i, page in enumerate(reader.pages, 1):
+                box = page.mediabox
+                unit = float(page.user_unit or 1)
+                if max(abs(float(box.width)), abs(float(box.height))) * unit > limit:
+                    raise ValidationError(f"Page {i} of the {label} is larger than {max_page_inches:g} inches. "
+                                          f"Please upload a normal-sized (A4 or similar) document.")
     except ValidationError:
         raise
     except (PdfReadError, Exception):

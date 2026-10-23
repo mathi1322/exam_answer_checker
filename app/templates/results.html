@@ -64,7 +64,8 @@
 
 <h2>Your data</h2>
 <form method="post" action="/jobs/{{ job.id }}/delete" onsubmit="return confirm('Delete the uploaded files and results now?');">
-  <p class="hint">Uploads and results are deleted automatically {{ retention_hours|round|int }} hours after upload.</p>
+  <p class="hint">Your response sheet and results are deleted automatically
+    {{ retention_hours }} hour(s) after upload. Download anything you want to keep.</p>
   <button type="submit" class="danger">Delete now</button>
 </form>
 {% endblock %}

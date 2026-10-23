@@ -1,0 +1,29 @@
+# Public HTTPS front end. Started by: docker compose --profile public up -d
+# Caddy gets and renews the TLS certificate for DOMAIN automatically. The domain's DNS A/AAAA record must point at
+# this server, and ports 80 and 443 must be open.
+{
+	servers {
+		timeouts {
+			read_header 10s
+			# Large scans on slow connections: 100 MB at ~200 KB/s.
+			read_body 10m
+			idle 2m
+		}
+	}
+}
+
+{$DOMAIN:localhost} {
+	encode gzip
+
+	# Both files arrive in one request: 2 x MAX_FILE_MB plus form overhead.
+	request_body {
+		max_size {$MAX_REQUEST_MB:101}MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+
+	reverse_proxy web:8000
+}

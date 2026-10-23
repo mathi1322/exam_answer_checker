@@ -41,7 +41,8 @@ flowchart LR
 |---|---|---|
 | `main.py` | HTTP routes, form parsing, template rendering, file streaming | everything below |
 | `config.py` | `Settings` dataclass read from environment variables | — |
-| `jobs.py` | `JobStore`: create, read, update and delete job folders; run jobs on the thread pool; expiry cleanup | `pipeline` |
+| `jobs.py` | `JobStore`: create, read, update and delete job folders; owner check; capacity counts; run jobs on the thread pool; expiry cleanup | `pipeline` |
+| `security.py` | Per-IP upload rate limiter, same-origin (CSRF) check, security response headers | — |
 | `validate.py` | User-facing checks raising `ValidationError(message)` | `response_parser` |
 | `pipeline.py` | Runs every stage (`process`), review overrides (`apply_review`), scoring and outputs (`finalize`) | all stage modules |
 | `models.py` | Dataclasses shared between stages | — |
@@ -100,7 +101,7 @@ restart"), because nothing will ever finish them.
 ```
 DATA_DIR/jobs/<job id>/
 ├── job.json                 status, progress, options (see below)
-├── key.pdf                  uploaded answer key
+├── key.pdf                  uploaded answer key. Deleted when processing ends
 ├── response.pdf             uploaded response sheet
 ├── pages/                   key page renders (page-NNN.jpg). Deleted when processing ends
 ├── crops/
@@ -114,8 +115,9 @@ DATA_DIR/jobs/<job id>/
     └── reordered_response.pdf
 ```
 
-The job ID is `secrets.token_urlsafe(16)` (128 bits). It is the only access control, so treat a job URL like a
-password. Every route checks the ID against a strict character set before touching the filesystem.
+The job ID is `secrets.token_urlsafe(16)` (128 bits). Every route checks the ID against a strict character set
+before touching the filesystem. `job.json` also holds `owner`, the SHA-256 of the uploading browser's owner cookie;
+`main._job_or_404` answers 404 unless the request's cookie matches, so the URL alone is not enough.
 
 Writes to `job.json` and `state.json` go to a temporary file followed by an atomic rename, so a reader never sees a
 half-written file. `job.json` updates are additionally serialised by a lock.

@@ -38,6 +38,14 @@ docker build -t exam-answer-checker .
 docker run -p 8000:8000 -v exam-data:/data exam-answer-checker
 ```
 
+To publish it on your own domain with HTTPS, point the domain's DNS at the server and run:
+
+```sh
+DOMAIN=checker.example.com docker compose --profile public up -d --build
+```
+
+See [OPERATIONS.md](docs/OPERATIONS.md#on-the-public-internet) for what protects a public deployment.
+
 Running locally without Docker needs Python 3.11+, `tesseract` (5.x, with `eng`) and `poppler-utils` (`pdftoppm`):
 
 ```sh
@@ -91,8 +99,10 @@ All settings are environment variables. See `.env.example` for the full list wit
 
 | Variable | Default | |
 |---|---|---|
-| `RETENTION_HOURS` | 24 | Jobs are deleted this long after upload. There is also a **Delete now** button. |
-| `MAX_FILE_MB` / `MAX_PAGES` | 50 / 300 | Per-file upload limits. |
+| `RETENTION_HOURS` | 2 | Jobs are deleted this long after upload. There is also a **Delete now** button. |
+| `MAX_FILE_MB` / `MAX_PAGES` / `MAX_PAGE_INCHES` | 50 / 300 / 20 | Per-file upload limits. |
+| `UPLOADS_PER_HOUR` / `MAX_PENDING_JOBS` / `MAX_DISK_GB` | 10 / 10 / 5 | Public-deployment limits: per-IP uploads, busy queue, total disk. |
+| `DOMAIN` | localhost | Hostname for the HTTPS front end (`--profile public`). |
 | `RENDER_DPI` | 200 | Render resolution for the key and the crops. |
 | `OCR_THREADS` | CPU count | Parallel Tesseract processes. |
 | `JOB_WORKERS` | 1 | Jobs processed at once. |
@@ -110,11 +120,12 @@ API, and the answers it supplied are labelled “AI”.
 
 ## Privacy
 
-- Uploads, crops and outputs live in a per-job folder (`DATA_DIR/jobs/<random id>/`). A background task deletes jobs
-  after `RETENTION_HOURS`, and **Delete now** removes one immediately.
+- Uploads, crops and outputs live in a per-job folder (`DATA_DIR/jobs/<random id>/`). The answer key PDF is deleted
+  as soon as it has been processed. A background task deletes the rest after `RETENTION_HOURS` (2 by default), and
+  **Delete now** removes it immediately.
 - Logs contain only job IDs and stage names: no names, registration numbers, file contents or exception messages.
-- The job ID is an unguessable random token and acts as the only access key, since there are no user accounts. Run
-  the service behind your own authentication if it is reachable by others.
+- There are no user accounts. A job can be opened only from the browser that uploaded it: the upload sets an
+  `HttpOnly` owner cookie, and every job route checks it, so a leaked job link alone shows nothing.
 
 ## Tests
 
